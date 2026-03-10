@@ -1,0 +1,49 @@
+networks:
+  ai-network:
+    driver: bridge
+
+services:
+  ollama-server:
+    image: ollama/ollama:latest
+    container_name: ollama-server
+    ports:
+      - "11434:11435"
+    volumes:
+      - ./data/ollama_data:/root/.ollama
+    networks:
+      - ai-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: qdrant-server
+    ports:
+      - "6333:6333"
+    volumes:
+      - ./data/qdrant_data:/data
+    networks:
+      - ai-network
+    restart: unless-stopped
+  openclaw-teams:
+    build: 
+      context: ./build/openclaw-master
+    container_name: openclaw-teams
+    env_file:
+      - .env
+    networks:
+      - ai-network
+    depends_on:
+      - ollama-server
+      - qdrant
+    volumes:
+      - ./configs:/home/node/configs
+    restart: unless-stopped
+    entrypoint: /bin/bash
+    stdin_open: true
+    tty: true
